@@ -31,7 +31,7 @@ variable "your_ip" {
 
 variable "github_repo" {
   description = "GitHub repo URL for uptime-monitor"
-  default     = "https://github.com/YOUR_GITHUB_USERNAME/uptime-monitor.git"
+  default     = "https://github.com/adityapichikala/uptime-monitor.git"
 }
 
 variable "ami_id" {

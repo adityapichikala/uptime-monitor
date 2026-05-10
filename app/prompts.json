@@ -1,1 +1,6 @@
-{}
+{
+  "6980a5e6": {
+    "text": "What is 2+2? Answer with just the number.",
+    "expected_answer": "4"
+  }
+}

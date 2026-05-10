@@ -1,1 +1,35 @@
-{}
+{
+  "1ca3e7fe": {
+    "name": "Groq",
+    "api_key": "GROQ_API_KEY",
+    "model": "llama3-8b-8192",
+    "provider_type": "groq",
+    "base_url": "https://api.groq.com/openai/v1",
+    "cost_per_1k_tokens": 0.0001,
+    "status": "unknown",
+    "last_checked": null,
+    "last_response_time": null
+  },
+  "7f907310": {
+    "name": "Gemini",
+    "api_key": "GEMINI_API_KEY",
+    "model": "gemini-1.5-flash",
+    "provider_type": "gemini",
+    "base_url": null,
+    "cost_per_1k_tokens": 0.0002,
+    "status": "unknown",
+    "last_checked": null,
+    "last_response_time": null
+  },
+  "80f4f3fc": {
+    "name": "HuggingFace",
+    "api_key": "HF_API_KEY",
+    "model": "gpt2",
+    "provider_type": "huggingface",
+    "base_url": null,
+    "cost_per_1k_tokens": 0.0,
+    "status": "unknown",
+    "last_checked": null,
+    "last_response_time": null
+  }
+}

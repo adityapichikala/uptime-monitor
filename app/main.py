@@ -118,7 +118,7 @@ async def check_gemini(provider: dict, prompt_text: str) -> dict:
 async def check_huggingface(provider: dict, prompt_text: str) -> dict:
     """Check HuggingFace Inference API."""
     api_key = os.getenv(provider["api_key"], "")
-    base = provider.get("base_url", "https://api-inference.huggingface.co/models")
+    base = provider.get("base_url") or "https://api-inference.huggingface.co/models"
     url = f"{base.rstrip('/')}/{provider['model']}"
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
