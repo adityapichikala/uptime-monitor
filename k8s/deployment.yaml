@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: dockerhub_user/ai-observatory:latest
+          image: adityapichikala/ai-observatory:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

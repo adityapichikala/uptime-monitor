@@ -3,13 +3,28 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: "ai-observatory"
+  # ── Dynamic EC2 Service Discovery ──────────────────────────────────────────
+  # Prometheus auto-discovers the App Server by its Name tag.
+  # No more manual IP copy-paste — if the instance is recreated,
+  # Prometheus finds the new one automatically.
+  - job_name: "ai-observatory-dynamic"
+    ec2_sd_configs:
+      - region: "ap-south-1"
+        port: 30080
+    relabel_configs:
+      # Only scrape instances tagged Name = ai-observatory-app
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: ai-observatory-app
+        action: keep
+      # Use the instance Name tag as a friendly label
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: instance_name
+      # Add environment label from tag
+      - source_labels: [__meta_ec2_tag_Environment]
+        target_label: environment
     metrics_path: /metrics
-    static_configs:
-      - targets: ["EC2_A_PRIVATE_IP:30080"]
-        labels:
-          environment: "student"
 
+  # ── Prometheus self-monitoring ─────────────────────────────────────────────
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]

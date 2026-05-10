@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "dockerhub_user/ai-observatory"
+        DOCKER_IMAGE = "adityapichikala/ai-observatory"
         DOCKER_TAG   = "${env.BUILD_NUMBER}"
     }
 

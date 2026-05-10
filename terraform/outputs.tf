@@ -39,6 +39,6 @@ output "grafana_url" {
 }
 
 output "prometheus_scrape_target" {
-  description = "Replace EC2_A_PRIVATE_IP in prometheus.yml with this value"
+  description = "App Server private IP (Prometheus EC2 SD auto-discovers this — no manual config needed)"
   value       = aws_instance.app_server.private_ip
 }
