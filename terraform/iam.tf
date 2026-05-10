@@ -1,0 +1,78 @@
+# ─── IAM Role for EC2-A (App Server) ──────────────────────────────────────────
+
+resource "aws_iam_role" "app_role" {
+  name = "ai-observatory-app-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Project     = "ai-observatory"
+    Environment = "student"
+  }
+}
+
+# ─── CloudWatch Logs Policy ──────────────────────────────────────────────────
+
+resource "aws_iam_role_policy" "cloudwatch_policy" {
+  name = "ai-observatory-cloudwatch"
+  role = aws_iam_role.app_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:${var.aws_region}:*:*"
+      }
+    ]
+  })
+}
+
+# ─── S3 Backup Write Policy ──────────────────────────────────────────────────
+
+resource "aws_iam_role_policy" "s3_write_policy" {
+  name = "ai-observatory-s3-write"
+  role = aws_iam_role.app_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::uptime-backup-*",
+          "arn:aws:s3:::uptime-backup-*/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ─── Instance Profile ────────────────────────────────────────────────────────
+
+resource "aws_iam_instance_profile" "app_profile" {
+  name = "ai-observatory-app-profile"
+  role = aws_iam_role.app_role.name
+}

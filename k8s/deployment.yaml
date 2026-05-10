@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-app
+  labels:
+    app: fastapi-app
+    project: ai-observatory
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fastapi-app
+  template:
+    metadata:
+      labels:
+        app: fastapi-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: fastapi
+          image: dockerhub_user/ai-observatory:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-observatory-secrets
+                  key: GROQ_API_KEY
+                  optional: true
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-observatory-secrets
+                  key: GEMINI_API_KEY
+                  optional: true
+            - name: HF_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-observatory-secrets
+                  key: HF_API_KEY
+                  optional: true
+            - name: CHECK_INTERVAL
+              value: "120"
+            - name: LOG_LEVEL
+              value: "INFO"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "192Mi"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /app/providers.json
+              subPath: providers.json
+            - name: data
+              mountPath: /app/prompts.json
+              subPath: prompts.json
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: observatory-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: observatory-data
+  labels:
+    project: ai-observatory
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: local-path
