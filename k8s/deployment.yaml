@@ -71,11 +71,7 @@ spec:
             periodSeconds: 10
           volumeMounts:
             - name: data
-              mountPath: /app/providers.json
-              subPath: providers.json
-            - name: data
-              mountPath: /app/prompts.json
-              subPath: prompts.json
+              mountPath: /app/data
       volumes:
         - name: data
           persistentVolumeClaim:

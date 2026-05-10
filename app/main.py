@@ -36,9 +36,11 @@ logging.basicConfig(
 logger = logging.getLogger("ai-observatory")
 
 # ─── File Paths ───────────────────────────────────────────────────────────────
+# In K8s the PVC is mounted at /app/data; locally fall back to the app directory.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROVIDERS_FILE = os.path.join(BASE_DIR, "providers.json")
-PROMPTS_FILE = os.path.join(BASE_DIR, "prompts.json")
+DATA_DIR = "/app/data" if os.path.isdir("/app/data") else BASE_DIR
+PROVIDERS_FILE = os.path.join(DATA_DIR, "providers.json")
+PROMPTS_FILE = os.path.join(DATA_DIR, "prompts.json")
 
 # ─── In-memory State ─────────────────────────────────────────────────────────
 providers: Dict[str, Dict[str, Any]] = {}
@@ -101,11 +103,13 @@ async def check_groq_openai(provider: dict, prompt_text: str) -> dict:
 
 
 async def check_gemini(provider: dict, prompt_text: str) -> dict:
-    """Check Google Gemini provider."""
+    """Check Google Gemini provider (per-call client to avoid global state conflict)."""
     api_key = os.getenv(provider["api_key"], "")
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(provider["model"])
-    response = await model.generate_content_async(prompt_text)
+    client = genai.Client(api_key=api_key)
+    response = await client.aio.models.generate_content(
+        model=provider["model"],
+        contents=prompt_text,
+    )
     text = ""
     if response and response.text:
         text = response.text
