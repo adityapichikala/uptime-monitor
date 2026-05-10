@@ -100,7 +100,7 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_instance" "app_server" {
   ami                    = var.ami_id
-  instance_type          = "t2.micro"
+  instance_type          = "t3.micro"
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.app_sg.id]
@@ -135,7 +135,7 @@ resource "aws_instance" "app_server" {
 
 resource "aws_instance" "ops_server" {
   ami                    = var.ami_id
-  instance_type          = "t2.micro"
+  instance_type          = "t3.micro"
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.ops_sg.id]

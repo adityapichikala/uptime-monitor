@@ -45,30 +45,6 @@ resource "aws_iam_role_policy" "cloudwatch_policy" {
   })
 }
 
-# ─── S3 Backup Write Policy ──────────────────────────────────────────────────
-
-resource "aws_iam_role_policy" "s3_write_policy" {
-  name = "ai-observatory-s3-write"
-  role = aws_iam_role.app_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:PutObject",
-          "s3:GetObject",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "arn:aws:s3:::uptime-backup-*",
-          "arn:aws:s3:::uptime-backup-*/*"
-        ]
-      }
-    ]
-  })
-}
 
 # ─── Instance Profile ────────────────────────────────────────────────────────
 
@@ -119,6 +95,22 @@ resource "aws_iam_role_policy" "ec2_describe_policy" {
         Resource = "*"
       }
     ]
+  })
+}
+
+# ─── S3 Backup Write Policy (for Ops Server) ─────────────────────────────────
+
+resource "aws_iam_role_policy" "ops_s3_backup" {
+  name = "ai-observatory-ops-s3-write"
+  role = aws_iam_role.ops_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:ListBucket"]
+      Resource = ["arn:aws:s3:::uptime-backup-*", "arn:aws:s3:::uptime-backup-*/*"]
+    }]
   })
 }
 
