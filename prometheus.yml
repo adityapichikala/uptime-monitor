@@ -9,7 +9,7 @@ scrape_configs:
   # Prometheus finds the new one automatically.
   - job_name: "ai-observatory-dynamic"
     ec2_sd_configs:
-      - region: "ap-south-1"
+      - region: "us-east-1"
         port: 30080
     relabel_configs:
       # Only scrape instances tagged Name = ai-observatory-app

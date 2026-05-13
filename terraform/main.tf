@@ -16,7 +16,7 @@ provider "aws" {
 
 variable "aws_region" {
   description = "AWS region"
-  default     = "ap-south-1"
+  default     = "us-east-1"
 }
 
 variable "key_name" {
@@ -34,9 +34,9 @@ variable "github_repo" {
   default     = "https://github.com/adityapichikala/uptime-monitor.git"
 }
 
-variable "ami_id" {
-  description = "Ubuntu 22.04 AMI for ap-south-1"
-  default     = "ami-0f5ee92e2d63afc18"
+# ─── Dynamic AMI Lookup (always gets latest Ubuntu 22.04 for the region) ─────
+data "aws_ssm_parameter" "ubuntu_ami" {
+  name = "/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id"
 }
 
 # ─── VPC & Networking ────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ resource "aws_route_table_association" "public" {
 # ─── EC2-A: App Server (k3s) ─────────────────────────────────────────────────
 
 resource "aws_instance" "app_server" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ssm_parameter.ubuntu_ami.value
   instance_type          = "t3.micro"
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
@@ -134,7 +134,7 @@ resource "aws_instance" "app_server" {
 # ─── EC2-B: Ops Server (Jenkins + Prometheus + Grafana) ───────────────────────
 
 resource "aws_instance" "ops_server" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ssm_parameter.ubuntu_ami.value
   instance_type          = "t3.micro"
   key_name               = var.key_name
   subnet_id              = aws_subnet.public.id
