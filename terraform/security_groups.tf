@@ -5,13 +5,13 @@ resource "aws_security_group" "app_sg" {
   description = "Security group for the App Server (EC2-A / k3s)"
   vpc_id      = aws_vpc.main.id
 
-  # SSH from your IP
+  # SSH from anywhere temporarily
   ingress {
     description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # NodePort for FastAPI — from your IP + Ops SG
