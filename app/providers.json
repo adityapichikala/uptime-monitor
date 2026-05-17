@@ -24,7 +24,7 @@
   "80f4f3fc": {
     "name": "HuggingFace",
     "api_key": "HF_API_KEY",
-    "model": "gpt2",
+    "model": "openai-community/gpt2",
     "provider_type": "huggingface",
     "base_url": null,
     "cost_per_1k_tokens": 0.0,
