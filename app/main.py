@@ -103,13 +103,11 @@ async def check_groq_openai(provider: dict, prompt_text: str) -> dict:
 
 
 async def check_gemini(provider: dict, prompt_text: str) -> dict:
-    """Check Google Gemini provider (per-call client to avoid global state conflict)."""
+    """Check Google Gemini provider (using legacy google-generativeai SDK)."""
     api_key = os.getenv(provider["api_key"], "")
-    client = genai.Client(api_key=api_key)
-    response = await client.aio.models.generate_content(
-        model=provider["model"],
-        contents=prompt_text,
-    )
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(provider["model"])
+    response = await model.generate_content_async(prompt_text)
     text = ""
     if response and response.text:
         text = response.text
