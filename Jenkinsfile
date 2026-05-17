@@ -76,7 +76,7 @@ pipeline {
                     string(credentialsId: 'groq-api-key',   variable: 'GROQ_KEY'),
                     string(credentialsId: 'gemini-api-key', variable: 'GEMINI_KEY'),
                     string(credentialsId: 'hf-api-key',     variable: 'HF_KEY'),
-                    file(credentialsId: 'ec2-ssh-key-file',  variable: 'SSH_KEY_FILE'),
+                    string(credentialsId: 'ec2-ssh-key-b64', variable: 'SSH_KEY_B64'),
                     usernamePassword(
                         credentialsId: 'dockerhub-creds',
                         usernameVariable: 'DOCKER_USER',
@@ -84,7 +84,9 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        # Ensure correct permissions on the SSH key file
+                        # Decode and write SSH key to secure temp file
+                        SSH_KEY_FILE=$(mktemp)
+                        echo "$SSH_KEY_B64" | base64 -d > "$SSH_KEY_FILE"
                         chmod 600 "$SSH_KEY_FILE"
 
                         # Log in to Docker Hub on the remote EC2 App Server
@@ -114,6 +116,9 @@ pipeline {
                         ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
                         aws s3 cp app/providers.json \
                             "s3://uptime-backup-${ACCOUNT_ID}/providers.json" || true
+
+                        # Cleanup secure SSH key file
+                        rm -f "$SSH_KEY_FILE"
                     '''
                 }
             }
