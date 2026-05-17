@@ -81,7 +81,7 @@ pipeline {
                     sh '''
                         # Write kubeconfig to temp file
                         KUBECONFIG_FILE=$(mktemp)
-                        echo "$KUBECONFIG_CONTENT" | base64 -d > "$KUBECONFIG_FILE"
+                        printf '%s\n' "$KUBECONFIG_CONTENT" > "$KUBECONFIG_FILE"
                         export KUBECONFIG="$KUBECONFIG_FILE"
 
                         # Create / update Kubernetes secret with API keys
