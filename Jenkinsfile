@@ -76,38 +76,49 @@ pipeline {
                     string(credentialsId: 'groq-api-key',   variable: 'GROQ_KEY'),
                     string(credentialsId: 'gemini-api-key', variable: 'GEMINI_KEY'),
                     string(credentialsId: 'hf-api-key',     variable: 'HF_KEY'),
-                    string(credentialsId: 'ec2-kubeconfig', variable: 'KUBECONFIG_CONTENT')
+                    string(credentialsId: 'ec2-ssh-key',    variable: 'SSH_KEY_CONTENT'),
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
                 ]) {
                     sh '''
-                        # Write kubeconfig to temp file
-                        KUBECONFIG_FILE=$(mktemp)
-                        echo "$KUBECONFIG_CONTENT" | base64 -d > "$KUBECONFIG_FILE"
-                        export KUBECONFIG="$KUBECONFIG_FILE"
+                        # Write SSH key to temp file
+                        SSH_KEY_FILE=$(mktemp)
+                        echo "$SSH_KEY_CONTENT" > "$SSH_KEY_FILE"
+                        chmod 600 "$SSH_KEY_FILE"
 
-                        # Create / update Kubernetes secret with API keys
-                        kubectl delete secret ai-observatory-secrets --ignore-not-found
-                        kubectl create secret generic ai-observatory-secrets \
-                            --from-literal=GROQ_API_KEY="$GROQ_KEY" \
-                            --from-literal=GEMINI_API_KEY="$GEMINI_KEY" \
-                            --from-literal=HF_API_KEY="$HF_KEY"
+                        # Log in to Docker Hub on the remote EC2 App Server
+                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
+                            "echo '$DOCKER_PASS' | docker login -u '$DOCKER_USER' --password-stdin || true"
 
-                        # Apply manifests
-                        kubectl apply -f k8s/
+                        # Stop and remove existing container if running
+                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
+                            "docker stop fastapi-app || true; docker rm fastapi-app || true"
 
-                        # Rolling update to new image
-                        kubectl set image deployment/fastapi-app \
-                            fastapi=${DOCKER_IMAGE}:${DOCKER_TAG}
+                        # Run container directly on EC2
+                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
+                            "docker run -d --name fastapi-app \
+                                -p 30080:8000 \
+                                -e GROQ_API_KEY='$GROQ_KEY' \
+                                -e GEMINI_API_KEY='$GEMINI_KEY' \
+                                -e HF_API_KEY='$HF_KEY' \
+                                --restart always \
+                                ${DOCKER_IMAGE}:${DOCKER_TAG}"
 
-                        # Wait for rollout
-                        kubectl rollout status deployment/fastapi-app --timeout=120s
+                        # Wait 5 seconds and verify container is running
+                        sleep 5
+                        ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
+                            "docker ps | grep fastapi-app"
 
-                        # Backup providers.json to S3
+                        # Backup providers.json to S3 (running locally on Jenkins agent)
                         ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
                         aws s3 cp app/providers.json \
                             "s3://uptime-backup-${ACCOUNT_ID}/providers.json" || true
 
-                        # Cleanup
-                        rm -f "$KUBECONFIG_FILE"
+                        # Cleanup SSH key file
+                        rm -f "$SSH_KEY_FILE"
                     '''
                 }
             }
