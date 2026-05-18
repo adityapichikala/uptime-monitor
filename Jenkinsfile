@@ -73,7 +73,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 withCredentials([
-                    string(credentialsId: 'groq-api-key',   variable: 'GROQ_KEY'),
+                    string(credentialsId: 'openrouter-api-key', variable: 'OPENROUTER_KEY'),
                     string(credentialsId: 'gemini-api-key', variable: 'GEMINI_KEY'),
                     string(credentialsId: 'hf-api-key',     variable: 'HF_KEY'),
                     string(credentialsId: 'ec2-ssh-key-b64', variable: 'SSH_KEY_B64'),
@@ -101,7 +101,7 @@ pipeline {
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
                             "docker run -d --name fastapi-app \
                                 -p 30080:8000 \
-                                -e GROQ_API_KEY='$GROQ_KEY' \
+                                -e OPENROUTER_API_KEY='$OPENROUTER_KEY' \
                                 -e GEMINI_API_KEY='$GEMINI_KEY' \
                                 -e HF_API_KEY='$HF_KEY' \
                                 --restart always \

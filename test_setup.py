@@ -2,17 +2,17 @@ import httpx
 
 base = "http://localhost:8000"
 
-# 1. Add Groq provider
+# 1. Add OpenRouter provider
 r = httpx.post(f"{base}/providers", json={
-    "name": "Groq",
-    "api_key": "GROQ_API_KEY",
-    "model": "llama3-8b-8192",
-    "provider_type": "groq",
-    "base_url": "https://api.groq.com/openai/v1",
-    "cost_per_1k_tokens": 0.0001
+    "name": "OpenRouter",
+    "api_key": "OPENROUTER_API_KEY",
+    "model": "meta-llama/llama-3-8b-instruct:free",
+    "provider_type": "openrouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "cost_per_1k_tokens": 0.0
 })
 groq_id = r.json()["id"]
-print(f"1. Added Groq: id={groq_id}")
+print(f"1. Added OpenRouter: id={groq_id}")
 
 # 2. Add Gemini provider
 r = httpx.post(f"{base}/providers", json={
@@ -74,7 +74,7 @@ print(f"10. Swagger docs: {r.status_code} OK")
 
 print()
 print("--- Provider IDs (use for simulate/failure test) ---")
-print(f"Groq:        {groq_id}")
+print(f"OpenRouter:  {groq_id}")
 print(f"Gemini:      {gemini_id}")
 print(f"HuggingFace: {hf_id}")
 print(f"Prompt:      {prompt_id}")

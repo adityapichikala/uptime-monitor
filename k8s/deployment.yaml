@@ -27,11 +27,11 @@ spec:
             - containerPort: 8000
               name: http
           env:
-            - name: GROQ_API_KEY
+            - name: OPENROUTER_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: ai-observatory-secrets
-                  key: GROQ_API_KEY
+                  key: OPENROUTER_API_KEY
                   optional: true
             - name: GEMINI_API_KEY
               valueFrom:

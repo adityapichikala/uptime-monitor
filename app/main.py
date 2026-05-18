@@ -141,6 +141,7 @@ async def check_huggingface(provider: dict, prompt_text: str) -> dict:
 CHECKER_MAP = {
     "groq": check_groq_openai,
     "openai": check_groq_openai,
+    "openrouter": check_groq_openai,
     "gemini": check_gemini,
     "huggingface": check_huggingface,
 }
