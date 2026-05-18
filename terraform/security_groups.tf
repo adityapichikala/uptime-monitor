@@ -62,22 +62,22 @@ resource "aws_security_group" "ops_sg" {
   description = "Security group for the Ops Server (EC2-B)"
   vpc_id      = aws_vpc.main.id
 
-  # SSH from your IP
+  # SSH from anywhere temporarily
   ingress {
     description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Jenkins
+  # Jenkins from anywhere
   ingress {
     description = "Jenkins UI"
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Prometheus
