@@ -113,9 +113,11 @@ pipeline {
                             "docker ps | grep fastapi-app"
 
                         # Backup providers.json to S3 (running locally on Jenkins agent)
-                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-                        aws s3 cp app/providers.json \
-                            "s3://uptime-backup-${ACCOUNT_ID}/providers.json" || true
+                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null || echo "")
+                        if [ -n "$ACCOUNT_ID" ]; then
+                            aws s3 cp app/providers.json \
+                                "s3://uptime-backup-\${ACCOUNT_ID}/providers.json" || true
+                        fi
 
                         # Cleanup secure SSH key file
                         rm -f "$SSH_KEY_FILE"
