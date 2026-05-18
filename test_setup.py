@@ -6,7 +6,7 @@ base = "http://localhost:8000"
 r = httpx.post(f"{base}/providers", json={
     "name": "OpenRouter",
     "api_key": "OPENROUTER_API_KEY",
-    "model": "meta-llama/llama-3-8b-instruct:free",
+    "model": "meta-llama/llama-3.1-8b-instruct:free",
     "provider_type": "openrouter",
     "base_url": "https://openrouter.ai/api/v1",
     "cost_per_1k_tokens": 0.0
