@@ -14,13 +14,13 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # NodePort for FastAPI — from your IP + Ops SG
+  # NodePort for FastAPI — from anywhere
   ingress {
-    description = "FastAPI NodePort from your IP"
+    description = "FastAPI NodePort"
     from_port   = 30080
     to_port     = 30080
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -86,7 +86,7 @@ resource "aws_security_group" "ops_sg" {
     from_port   = 9090
     to_port     = 9090
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # Grafana
@@ -95,7 +95,7 @@ resource "aws_security_group" "ops_sg" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = [var.your_ip]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # All outbound
