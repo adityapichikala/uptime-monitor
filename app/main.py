@@ -25,6 +25,7 @@ from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 import google.generativeai as genai
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 load_dotenv()
 
@@ -58,7 +59,7 @@ api_cost_usd = Gauge("api_cost_usd", "Estimated cost in USD", ["provider", "prom
 api_response_valid = Gauge(
     "api_response_valid", "1 if response matches expected answer", ["provider", "prompt"]
 )
-api_error_total = Counter("api_error_total", "Cumulative error count", ["provider"])
+api_error_total = Counter("api_error_total", "Cumulative error count categorized by root cause", ["provider", "error_type"])
 api_requests_total = Counter("api_requests_total", "Cumulative request count", ["provider"])
 
 # ─── Rate Limiter ─────────────────────────────────────────────────────────────
@@ -84,10 +85,11 @@ def save_json(path: str, data: dict) -> None:
 
 # ─── AI Provider Checkers ────────────────────────────────────────────────────
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True)
 async def check_groq_openai(provider: dict, prompt_text: str) -> dict:
     """Check Groq or any OpenAI-compatible provider."""
     api_key = os.getenv(provider["api_key"], "")
-    client = AsyncOpenAI(api_key=api_key, base_url=provider.get("base_url"))
+    client = AsyncOpenAI(api_key=api_key, base_url=provider.get("base_url"), timeout=15.0)
     try:
         response = await client.chat.completions.create(
             model=provider["model"],
@@ -102,6 +104,7 @@ async def check_groq_openai(provider: dict, prompt_text: str) -> dict:
         await client.close()
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True)
 async def check_gemini(provider: dict, prompt_text: str) -> dict:
     """Check Google Gemini provider (using legacy google-generativeai SDK)."""
     api_key = os.getenv(provider["api_key"], "")
@@ -117,12 +120,13 @@ async def check_gemini(provider: dict, prompt_text: str) -> dict:
     return {"text": text.strip(), "tokens": tokens}
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True)
 async def check_huggingface(provider: dict, prompt_text: str) -> dict:
     """Check HuggingFace Inference API."""
     api_key = os.getenv(provider["api_key"], "")
     base = provider.get("base_url") or "https://api-inference.huggingface.co/models"
     url = f"{base.rstrip('/')}/{provider['model']}"
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -164,7 +168,7 @@ async def check_single(
     if provider_id in simulated_failures:
         if time.time() < simulated_failures[provider_id]:
             api_up.labels(provider=name, model=model).set(0)
-            api_error_total.labels(provider=name).inc()
+            api_error_total.labels(provider=name, error_type="simulated").inc()
             api_response_valid.labels(provider=name, prompt=prompt_label).set(0)
             logger.warning("[SIMULATED FAILURE] %s", name)
             return
@@ -175,7 +179,7 @@ async def check_single(
     if not checker:
         logger.error("Unknown provider_type: %s", provider.get("provider_type"))
         api_up.labels(provider=name, model=model).set(0)
-        api_error_total.labels(provider=name).inc()
+        api_error_total.labels(provider=name, error_type="unknown_type").inc()
         return
 
     start = time.time()
@@ -206,7 +210,22 @@ async def check_single(
     except Exception as exc:
         elapsed = time.time() - start
         api_up.labels(provider=name, model=model).set(0)
-        api_error_total.labels(provider=name).inc()
+        
+        # Determine error type dynamically
+        error_type = "generic_internal"
+        exc_str = str(exc).lower()
+        if "timeout" in exc_str or "timed out" in exc_str:
+            error_type = "timeout"
+        elif "rate limit" in exc_str or "429" in exc_str or "quota" in exc_str:
+            error_type = "rate_limit_429"
+        elif "401" in exc_str or "unauthorized" in exc_str or "credentials" in exc_str:
+            error_type = "auth_401"
+        elif "402" in exc_str or "payment" in exc_str or "limit exceeded" in exc_str:
+            error_type = "payment_required_402"
+        elif "404" in exc_str or "not found" in exc_str:
+            error_type = "not_found_404"
+
+        api_error_total.labels(provider=name, error_type=error_type).inc()
         api_response_time_seconds.labels(provider=name, prompt=prompt_label).set(elapsed)
         api_response_valid.labels(provider=name, prompt=prompt_label).set(0)
 
