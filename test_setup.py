@@ -6,7 +6,7 @@ base = "http://localhost:8000"
 r = httpx.post(f"{base}/providers", json={
     "name": "OpenRouter",
     "api_key": "OPENROUTER_API_KEY",
-    "model": "meta-llama/llama-3.1-8b-instruct:free",
+    "model": "meta-llama/llama-3.3-70b-instruct:free",
     "provider_type": "openrouter",
     "base_url": "https://openrouter.ai/api/v1",
     "cost_per_1k_tokens": 0.0
@@ -18,7 +18,7 @@ print(f"1. Added OpenRouter: id={groq_id}")
 r = httpx.post(f"{base}/providers", json={
     "name": "Gemini",
     "api_key": "GEMINI_API_KEY",
-    "model": "gemini-1.5-flash",
+    "model": "gemini-2.5-flash",
     "provider_type": "gemini",
     "cost_per_1k_tokens": 0.0002
 })
@@ -29,8 +29,9 @@ print(f"2. Added Gemini: id={gemini_id}")
 r = httpx.post(f"{base}/providers", json={
     "name": "HuggingFace",
     "api_key": "HF_API_KEY",
-    "model": "gpt2",
+    "model": "facebook/bart-large-cnn",
     "provider_type": "huggingface",
+    "base_url": "https://router.huggingface.co/hf-inference/models",
     "cost_per_1k_tokens": 0.0
 })
 hf_id = r.json()["id"]
