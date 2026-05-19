@@ -282,13 +282,28 @@ Before deploying to the cloud, the application must be verified locally.
     cp .env.example .env
     # Open .env using nano or VSCode and insert your active API keys
     ```
-3.  **Virtual Environment Initialization:**
+3.  **Virtual Environment Initialization & Dependency Rationale:**
+    To ensure isolated execution, we utilize Python's native virtual environments.
     ```bash
     python3 -m venv .venv
     source .venv/bin/activate
     pip install --upgrade pip
     pip install -r requirements.txt
     ```
+    *Why these specific requirements?* Every package in `requirements.txt` was selected for a critical architectural reason:
+
+    | Package | Version | Architectural Purpose (Why We Use It) |
+    | :--- | :--- | :--- |
+    | `fastapi` | `0.111.0+` | **Core Web Framework:** Chosen for its native `async` support, enabling concurrent polling of multiple LLM APIs without blocking the main event thread. |
+    | `uvicorn` | `0.29.0+` | **ASGI Server:** The high-performance web server that actually executes the FastAPI application. |
+    | `httpx` | `0.27.0+` | **Async HTTP Client:** Replaces the standard `requests` library. Required to make non-blocking outbound network calls to external AI providers (like HuggingFace). |
+    | `tenacity` | `8.2.0+` | **Resilience/Retry Engine:** Automatically intercepts network failures and HTTP 429 Rate Limits, executing exponential backoff retries to prevent false alarms. |
+    | `prometheus-client` | `0.20.0+` | **Telemetry Exporter:** Exposes the `/metrics` endpoint in the exact text format required by the Prometheus scraping engine. |
+    | `pydantic` | `2.7.0+` | **Data Validation:** Enforces strict typing for the JSON payloads submitted to the REST API (e.g., when adding a new provider). |
+    | `openai` | `1.30.0+` | **Standardized API Client:** Used as a universal adapter to query OpenAI, OpenRouter, and Groq via their standardized endpoints. |
+    | `google-generativeai` | `0.7.0+` | **Gemini SDK:** The official client required to communicate with Google's proprietary Gemini API. |
+    | `slowapi` | `0.1.9+` | **Security (Rate Limiting):** Protects the FastAPI endpoints from DDoS attacks by strictly limiting requests per IP address. |
+
 4.  **Boot the Application Engine:**
     ```bash
     uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -424,6 +439,35 @@ curl -X PUT http://<APP_SERVER_PUBLIC_IP>:30080/config \
   -H "Content-Type: application/json" \
   -d '{"interval_seconds": 60}'
 ```
+
+---
+
+## 10. Visual Documentation & UI Telemetry
+
+To provide a complete understanding of the user interfaces utilized in the Ops Server stack, below is the visual documentation for the Continuous Integration and Telemetry dashboards.
+
+*(Note: If deploying this project, replace the placeholder images below with actual screenshots of your running EC2 instances by placing them in an `assets/` folder in your repository).*
+
+### 10.1. Jenkins (CI/CD Pipeline UI)
+**Purpose:** Displays the real-time execution of the 6-stage deployment pipeline, including security scan outputs and Docker push statuses.
+<div align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/e/e9/Jenkins_logo.svg" alt="Jenkins Dashboard" width="200"/>
+  <p><i>Figure 1: Jenkins Automation Server Interface</i></p>
+</div>
+
+### 10.2. Prometheus (Targets & SD UI)
+**Purpose:** Confirms that the AWS EC2 Service Discovery successfully located the App Server and is actively scraping the `/metrics` endpoint.
+<div align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg" alt="Prometheus Targets" width="200"/>
+  <p><i>Figure 2: Prometheus Targets & Discovery Interface</i></p>
+</div>
+
+### 10.3. Grafana (Real-Time Observability Dashboard)
+**Purpose:** The final aggregation point. Renders complex PromQL queries into actionable, real-time visual charts for latency, token consumption, and failure classifications.
+<div align="center">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3b/Grafana_icon.svg" alt="Grafana Dashboard" width="200"/>
+  <p><i>Figure 3: Grafana Real-Time Observability Dashboard</i></p>
+</div>
 
 ---
 
