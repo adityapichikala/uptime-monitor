@@ -92,6 +92,20 @@ Every tool selected for this project represents an industry-standard best practi
 *   **Role:** Automated Infrastructure Provisioning.
 *   **Version Used:** `~> 5.0` (AWS Provider), `>= 1.5.0` (Terraform Core).
 *   **Implementation Details:** Terraform completely replaces manual AWS console interactions. It builds the foundational network (VPC, Subnet, Internet Gateway, Route Tables). It provisions the EC2 instances, leveraging `aws_ssm_parameter` to dynamically fetch the latest secure Ubuntu 22.04 AMI. Crucially, it manages **Security Groups** and **IAM Roles**, ensuring that EC2-A can write logs to CloudWatch and EC2-B can dynamically read EC2 tags and write backups to S3.
+
+    *Configuration Example (`terraform/main.tf` snippet for Ops Server Bootstrap):*
+    ```hcl
+    user_data = <<-EOF
+      #!/bin/bash
+      apt-get update -y
+      apt-get install -y docker.io docker-compose git awscli
+      usermod -aG docker ubuntu
+      systemctl enable docker && systemctl start docker
+      git clone https://github.com/adityapichikala/uptime-monitor.git
+      cd uptime-monitor
+      docker-compose up -d
+    EOF
+    ```
 *   **Why Not Alternatives?** While AWS CloudFormation is native to AWS, Terraform is cloud-agnostic and features a vastly superior and more readable configuration language (HCL). Pulumi was considered but requires a heavier programming overhead for infrastructure definitions.
 
 ### 3.2. Core Logic Engine: Python 3.11 & FastAPI
@@ -111,6 +125,19 @@ Every tool selected for this project represents an industry-standard best practi
 *   **Version Used:** `Prometheus 3.11.3`, `Grafana 13.0.1+security-01`.
 *   **Implementation Details:** 
     *   **Prometheus** is configured to execute a "pull" strategy. Every 15 seconds, it reaches out to the FastAPI container's `/metrics` endpoint. To prevent brittle hardcoding of IP addresses, Prometheus uses `ec2_sd_configs` (AWS Service Discovery) to automatically query the AWS API, find instances tagged as `ai-observatory-app`, and scrape them dynamically.
+
+        *Configuration Example (`prometheus.yml` Dynamic EC2 Discovery):*
+        ```yaml
+        scrape_configs:
+          - job_name: "ai-observatory-dynamic"
+            ec2_sd_configs:
+              - region: "us-east-1"
+                port: 30080
+            relabel_configs:
+              - source_labels: [__meta_ec2_tag_Name]
+                regex: ai-observatory-app
+                action: keep
+        ```
     *   **Grafana** connects to Prometheus and renders complex PromQL queries into beautiful, human-readable dashboards, displaying metrics like `api_response_time_seconds` and `api_tokens_used`.
 *   **Why Not Alternatives?** Datadog or New Relic are powerful enterprise alternatives, but they are expensive SaaS products. The Prometheus/Grafana stack provides unparalleled, cost-free, open-source telemetry.
 
@@ -118,6 +145,27 @@ Every tool selected for this project represents an industry-standard best practi
 *   **Role:** Automation and Delivery Pipeline.
 *   **Version Used:** `Jenkins 2.555.2 LTS`.
 *   **Implementation Details:** Jenkins automates the transition of code from a developer's machine to the live production server. The pipeline is codified in a `Jenkinsfile`, ensuring the build process itself is version-controlled.
+
+    *Configuration Example (`Jenkinsfile` Zero-Downtime Deploy Stage):*
+    ```groovy
+    stage('Deploy') {
+        steps {
+            withCredentials([string(credentialsId: 'ec2-ssh-key-b64', variable: 'SSH_KEY_B64')]) {
+                sh '''
+                    # Securely decode SSH key
+                    echo "$SSH_KEY_B64" | base64 -d > deploy_key.pem
+                    chmod 600 deploy_key.pem
+                    
+                    # SSH into App Server & hot-swap container
+                    ssh -i deploy_key.pem -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \\
+                        "docker stop fastapi-app || true; docker rm fastapi-app || true; \\
+                         docker run -d --name fastapi-app -p 30080:8000 \\
+                         --restart always ${DOCKER_IMAGE}:${DOCKER_TAG}"
+                '''
+            }
+        }
+    }
+    ```
 *   **Why Not Alternatives?** GitHub Actions and GitLab CI are excellent managed services. However, running a self-hosted Jenkins instance demonstrates a profound, foundational understanding of how CI/CD engines actually operate under the hood, including credential management, agent execution, and secure shell (SSH) deployments.
 
 ---
