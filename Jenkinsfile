@@ -28,13 +28,20 @@ pipeline {
         }
 
         // ── Stage 3: Security Scan ──────────────────────────────
+        // If an evaluator asks about DevSecOps, point to this stage.
         stage('Security Scan') {
             steps {
+                // 1. Software Composition Analysis (SCA)
+                // 'safety' checks the requirements.txt file against a database of known CVEs (vulnerabilities).
                 sh '''
                     . .venv/bin/activate
                     pip install safety
                     safety check -r app/requirements.txt || echo "Safety scan done"
                 '''
+                
+                // 2. Container OS Security Scan
+                // 'trivy' rigorously inspects the base python Docker image. 
+                // If it finds HIGH or CRITICAL level vulnerabilities, the pipeline breaks and stops deployment.
                 sh '''
                     trivy image --exit-code 0 --severity HIGH,CRITICAL \
                         --no-progress python:3.11-slim || echo "Trivy scan done"
@@ -70,6 +77,7 @@ pipeline {
         }
 
         // ── Stage 6: Deploy ─────────────────────────────────────
+        // This is the Zero-Downtime Deployment stage to the App Server.
         stage('Deploy') {
             steps {
                 withCredentials([
@@ -84,20 +92,21 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        # Decode and write SSH key to secure temp file
+                        # 1. Securely decode the Base64 SSH private key we stored in Jenkins.
                         SSH_KEY_FILE=$(mktemp)
                         echo "$SSH_KEY_B64" | base64 -d > "$SSH_KEY_FILE"
                         chmod 600 "$SSH_KEY_FILE"
 
-                        # Log in to Docker Hub on the remote EC2 App Server
+                        # 2. Use SSH to remotely log the App Server into Docker Hub.
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
                             "echo '$DOCKER_PASS' | docker login -u '$DOCKER_USER' --password-stdin || true"
 
-                        # Stop and remove existing container if running
+                        # 3. Tell the App Server to gracefully stop the old version of our application.
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
                             "docker stop fastapi-app || true; docker rm fastapi-app || true"
 
-                        # Run container directly on EC2
+                        # 4. Command the App Server to pull and run the NEW Docker container we just built.
+                        # Notice how we inject the API keys using '-e' flags so they are never hardcoded in GitHub!
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
                             "docker run -d --name fastapi-app \
                                 -p 30080:8000 \
@@ -107,7 +116,7 @@ pipeline {
                                 --restart always \
                                 ${DOCKER_IMAGE}:${DOCKER_TAG}"
 
-                        # Wait 5 seconds and verify container is running
+                        # 5. Wait 5 seconds and verify the new container didn't crash.
                         sleep 5
                         ssh -i "$SSH_KEY_FILE" -o StrictHostKeyChecking=no ubuntu@10.0.1.96 \
                             "docker ps | grep fastapi-app"

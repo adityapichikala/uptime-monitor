@@ -151,18 +151,32 @@ resource "aws_instance" "ops_server" {
     volume_type = "gp3"
   }
 
+  # The user_data script executes exactly ONCE when the EC2 instance is born.
+  # This automates the setup so we never have to SSH in to install things manually.
   user_data = <<-EOF
     #!/bin/bash
     set -e
+    
+    # 1. Create a 1GB Swap File so Jenkins doesn't crash from Out-Of-Memory errors during builds.
     fallocate -l 1G /swapfile
     chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
     echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    
+    # 2. Update the system and install Docker and Git.
     apt-get update -y
     apt-get install -y docker.io docker-compose git awscli
+    
+    # 3. Add the default 'ubuntu' user to the docker group so we can run commands without 'sudo'.
     usermod -aG docker ubuntu
+    
+    # 4. Start the Docker service so it's running in the background.
     systemctl enable docker && systemctl start docker
+    
+    # 5. Automatically clone our GitHub repository into the server.
     cd /home/ubuntu
     git clone ${var.github_repo} || true
+    
+    # 6. Enter the repo and run docker-compose. This instantly spins up Jenkins, Prometheus, and Grafana!
     cd uptime-monitor
     docker-compose up -d
   EOF

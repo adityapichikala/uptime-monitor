@@ -85,10 +85,16 @@ def save_json(path: str, data: dict) -> None:
 
 # ─── AI Provider Checkers ────────────────────────────────────────────────────
 
+# This @retry decorator is crucial for Resiliency. 
+# If the network drops a packet or the API throws a temporary error, it will wait 2 seconds and try again.
+# It only fails completely if all 3 attempts fail. This prevents false "Downtime" alerts!
 @retry(stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True)
 async def check_groq_openai(provider: dict, prompt_text: str) -> dict:
     """Check Groq or any OpenAI-compatible provider."""
     api_key = os.getenv(provider["api_key"], "")
+    
+    # We strictly enforce a 15.0 second timeout here. 
+    # If the AI provider hangs, it won't freeze our application. It will sever the connection instantly.
     client = AsyncOpenAI(api_key=api_key, base_url=provider.get("base_url"), timeout=15.0)
     try:
         response = await client.chat.completions.create(
@@ -212,6 +218,8 @@ async def check_single(
         api_up.labels(provider=name, model=model).set(0)
         
         # Determine error type dynamically
+        # This allows us to show a pie chart in Grafana of exactly WHY the provider failed.
+        # Instead of just "Error", we know if it was a Timeout, Rate Limit, or Authentication issue!
         error_type = "generic_internal"
         exc_str = str(exc).lower()
         if "timeout" in exc_str or "timed out" in exc_str:
@@ -243,16 +251,21 @@ async def checker_loop() -> None:
     while True:
         try:
             if providers and prompts:
+                # We build a list of tasks for every combination of Provider and Prompt.
                 tasks = [
                     check_single(pid, prov, qid, qdata)
                     for pid, prov in list(providers.items())
                     for qid, qdata in list(prompts.items())
                 ]
+                # 'asyncio.gather' executes all the network requests SIMULTaneously.
+                # If we have 10 providers, it takes 2 seconds to check them all, instead of 20 seconds.
                 await asyncio.gather(*tasks, return_exceptions=True)
             else:
                 logger.info("Waiting — no providers or prompts configured yet.")
         except Exception as exc:
             logger.error("Checker loop error (continuing): %s", exc)
+        
+        # Sleep for 120 seconds before running the background loop again
         await asyncio.sleep(config.get("interval_seconds", 120))
 
 

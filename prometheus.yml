@@ -4,24 +4,28 @@ global:
 
 scrape_configs:
   # ── Dynamic EC2 Service Discovery ──────────────────────────────────────────
-  # Prometheus auto-discovers the App Server by its Name tag.
-  # No more manual IP copy-paste — if the instance is recreated,
-  # Prometheus finds the new one automatically.
+  # This tells Prometheus: "Do not use a hardcoded IP address to find the App."
+  # Instead, query the AWS API dynamically to find the server.
   - job_name: "ai-observatory-dynamic"
     ec2_sd_configs:
+      # We tell it to look in the us-east-1 region for any EC2 instances.
+      # When it finds them, it will assume the metrics are hosted on port 30080.
       - region: "us-east-1"
         port: 30080
     relabel_configs:
-      # Only scrape instances tagged Name = ai-observatory-app
+      # AWS returns a list of ALL instances. We use 'relabel_configs' to filter them.
+      # Here, we strictly tell it: "Only keep instances where the AWS 'Name' tag equals 'ai-observatory-app'."
       - source_labels: [__meta_ec2_tag_Name]
         regex: ai-observatory-app
         action: keep
-      # Use the instance Name tag as a friendly label
+      # This renames the ugly AWS internal tag name into a clean label called 'instance_name' for Grafana.
       - source_labels: [__meta_ec2_tag_Name]
         target_label: instance_name
-      # Add environment label from tag
+      # This pulls the "student" environment tag so we can filter by environment in our dashboards.
       - source_labels: [__meta_ec2_tag_Environment]
         target_label: environment
+    
+    # This specifies the exact HTTP route Prometheus will hit (http://<IP>:30080/metrics)
     metrics_path: /metrics
 
   # ── Prometheus self-monitoring ─────────────────────────────────────────────
